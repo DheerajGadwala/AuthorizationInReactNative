@@ -1,98 +1,20 @@
 import 'react-native-gesture-handler';
 import React, {useState} from 'react';
-import {Animated, StyleSheet, SafeAreaView, View, Text, Button, TextInput, Image, TouchableOpacity} from 'react-native';
+import {Animated, SafeAreaView, View, Text, Button, TextInput, Image, TouchableOpacity, DeviceEventEmitter} from 'react-native';
 import auth from '@react-native-firebase/auth';
+import styles from '../styles.js';
 import facebook from './images/facebook.png';
 import gmail from './images/gmail.png';
 
 const SignInScreen = ({route, navigation})=>{
-
-    const styles = StyleSheet.create({
-        screen: {
-            flex: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
-            backgroundColor: `#ccd8ff`
-        },
-        container: {
-            width: '80%',
-            backgroundColor: "#ccd8ff",
-            padding: 20,
-            borderRadius: 5
-        },
-        titleContainer:{
-            width: '100%',
-            flexDirection: 'row',
-            justifyContent:'space-around',
-            paddingBottom: 30
-        },
-        title: {
-            fontSize: 25,
-            padding: 10,
-            color: 'black',
-        },
-        selected: {
-            fontSize: 25,
-            padding: 10,
-            backgroundColor: 'white',
-            color: 'black',
-            borderRadius: 5
-        },
-        iconsContainer:{
-            width: '100%',
-            flexDirection: 'row',
-            justifyContent:'space-around',
-            paddingBottom:30
-        },
-        iconElement:{
-            width: '50%',
-            justifyContent:'center',
-            alignItems:'center'
-        },
-        iconElementTouchable:{
-        },
-        iconContainer:{
-            justifyContent:'center',
-            alignItems:'center'
-        },
-        icon:{
-            width: 50,
-            height: 50
-        },
-        iconText:{
-            color: '#1a53ff',
-            fontWeight: '700',
-            fontSize: 12
-        },
-        input: {
-            height: 40,
-            width: '100%',
-            margin: 12,
-            borderBottomWidth: 1,
-        },
-        inputLabel: {
-            position: 'absolute',
-        },
-        inputContainer: {
-            width: '100%',
-            justifyContent: 'center',
-            alignItems: 'center',
-            position: 'relative',
-            paddingTop: 10,
-            paddingBottom: 5
-        },
-        button:{
-            margin: 12,
-            paddingTop: 10,
-            paddingBottom: 5
-        }
-    });
 
     const props = route.params;
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [emailLabel, setEmailLabel] = useState(new Animated.Value(0));
     const [passwordLabel, setPasswordLabel] = useState(new Animated.Value(0));
+    const [emailError, setEmailError] = useState('');
+    const [passwordError, setPasswordError] = useState('');
 
     const AnimatedLabel = (props) =>{
         return (
@@ -128,15 +50,16 @@ const SignInScreen = ({route, navigation})=>{
         ).start();
     }
 
-    const handleBlur = (label)=>{
-        Animated.timing(
-            label,
-            {
-              toValue: 0,
-              duration: 200,
-              useNativeDriver: false
-            }
-        ).start();
+    const handleBlur = (label, empty)=>{
+        if(!empty)
+            Animated.timing(
+                label,
+                {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: false
+                }
+            ).start();
     }
 
     return (
@@ -148,7 +71,7 @@ const SignInScreen = ({route, navigation})=>{
                             Login
                         </Text> 
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={()=>{navigation.navigate('SignUp', { signedIn: props.signedIn, setSignedIn: props.setSignedIn })}}>
+                    <TouchableOpacity onPress={()=>{navigation.navigate('SignUp')}}>
                         <Text style={styles.title}>
                             Signup
                         </Text>
@@ -176,19 +99,20 @@ const SignInScreen = ({route, navigation})=>{
                     <TextInput
                         onChangeText = {setEmail}
                         onFocus = {()=>{handleFocus(emailLabel)}}
-                        onBlur = {()=>{handleBlur(emailLabel)}}
+                        onBlur = {()=>{handleBlur(emailLabel, email)}}
                         value = {email}
                         style = {styles.input}
                     />
                     <AnimatedLabel style ={styles.inputLabel} label = {emailLabel}>
                         Email
                     </AnimatedLabel>
+                    <Text style={styles.error}>{emailError}</Text>
                 </View>
                 <View style = {styles.inputContainer}>
                     <TextInput
                         onChangeText = {setPassword}
                         onFocus = {()=>{handleFocus(passwordLabel)}}
-                        onBlur = {()=>{handleBlur(passwordLabel)}}
+                        onBlur = {()=>{handleBlur(passwordLabel, password)}}
                         value = {password}
                         secureTextEntry = {true}
                         style = {styles.input}
@@ -196,16 +120,20 @@ const SignInScreen = ({route, navigation})=>{
                     <AnimatedLabel style ={styles.inputLabel} label = {passwordLabel}>
                         Password
                     </AnimatedLabel>
+                    <Text style={styles.error}>{passwordError}</Text>
                 </View>
                 <View style = {styles.button}>
                     <Button
                         title = "Login"
+                        color="#1a53ff"
+                        onPress={()=>{DeviceEventEmitter.emit("login");}}
                     >
                     </Button>
                 </View>
                 <View style = {styles.button}>
                     <Button
                         title = "Login with Email Link"
+                        color="#1a53ff"
                     >
                     </Button>
                 </View>

@@ -1,12 +1,12 @@
 import 'react-native-gesture-handler';
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import {View, Text, Button} from 'react-native';
+import {View, Text, Button, DeviceEventEmitter} from 'react-native';
 import auth from '@react-native-firebase/auth';
-import SignInScreen from './components/signInScreen';
-import SignUpScreen from './components/signUpScreen';
+import SignInScreen from './components/authScreens/signInScreen';
+import SignUpScreen from './components/authScreens/signUpScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -46,7 +46,9 @@ const HomeScreen = ({ navigation }) => {
 const App = () => {
 
     const [signedIn, setSignedIn] = useState(false);
-
+    useEffect(() => {
+        DeviceEventEmitter.addListener("login", () => setSignedIn(true));
+    }, []);
   return (
     <NavigationContainer>
         {
@@ -64,19 +66,11 @@ const App = () => {
                 <Stack.Screen
                     name="SignIn" 
                     component={SignInScreen}
-                    initialParams = {{
-                        signedIn: signedIn,
-                        setSignedIn: setSignedIn
-                    }}
                     options={{headerShown: false}} 
                 />
                 <Stack.Screen
                     name="SignUp" 
                     component={SignUpScreen} 
-                    initialParams = {{
-                        signedIn: signedIn,
-                        setSignedIn: setSignedIn
-                    }}
                     options={{headerShown: false}} 
                 />
             </Stack.Navigator>
