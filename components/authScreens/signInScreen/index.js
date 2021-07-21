@@ -1,6 +1,6 @@
 import 'react-native-gesture-handler';
 import React, {useState} from 'react';
-import {Animated, SafeAreaView, View, Text, Button, TextInput, Image, TouchableOpacity, DeviceEventEmitter} from 'react-native';
+import {Animated, SafeAreaView, View, Text, Button, TextInput, Image, TouchableOpacity, DeviceEventEmitter, ScrollView} from 'react-native';
 import auth from '@react-native-firebase/auth';
 import styles from '../styles.js';
 import facebook from './images/facebook.png';
@@ -8,7 +8,6 @@ import gmail from './images/gmail.png';
 
 const SignInScreen = ({route, navigation})=>{
 
-    const props = route.params;
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [emailLabel, setEmailLabel] = useState(new Animated.Value(0));
@@ -62,8 +61,40 @@ const SignInScreen = ({route, navigation})=>{
             ).start();
     }
 
+    const  validateEmail = (email) => {
+        const re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+        return re.test(email);
+    }
+
+    const handleLoginSubmit = ()=>{
+        if(validateEmail(email)){
+            auth().signInWithEmailAndPassword(email, password)
+            .then((result)=>{
+                let user = result.user;
+                console.log(user);
+                DeviceEventEmitter.emit("login", {'email':user.email, 'userId':user.userId});
+            })
+            .catch((error)=>{
+                console.log(error);
+            });
+        }
+        else{
+            setEmailError('Invalid email id');
+        }
+    }
+
+    const handleSubmit = ()=>{
+        if(validateEmail(email)){
+            DeviceEventEmitter.emit("login");
+        }
+        else{
+            setEmailError('Invalid email id');
+        }
+    }
+
     return (
         <SafeAreaView style = {styles.screen}>
+            <ScrollView style = {styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
             <View style = {styles.container}>
                 <View style = {styles.titleContainer}>
                     <TouchableOpacity onPress={()=>{}}>
@@ -97,7 +128,7 @@ const SignInScreen = ({route, navigation})=>{
                 </View>
                 <View style = {styles.inputContainer}>
                     <TextInput
-                        onChangeText = {setEmail}
+                        onChangeText = {(text)=>{setEmailError(''); setEmail(text)}}
                         onFocus = {()=>{handleFocus(emailLabel)}}
                         onBlur = {()=>{handleBlur(emailLabel, email)}}
                         value = {email}
@@ -110,7 +141,7 @@ const SignInScreen = ({route, navigation})=>{
                 </View>
                 <View style = {styles.inputContainer}>
                     <TextInput
-                        onChangeText = {setPassword}
+                        onChangeText = {(text)=>{setPasswordError(''); setPassword(text)}}
                         onFocus = {()=>{handleFocus(passwordLabel)}}
                         onBlur = {()=>{handleBlur(passwordLabel, password)}}
                         value = {password}
@@ -126,7 +157,7 @@ const SignInScreen = ({route, navigation})=>{
                     <Button
                         title = "Login"
                         color="#1a53ff"
-                        onPress={()=>{DeviceEventEmitter.emit("login");}}
+                        onPress={handleLoginSubmit}
                     >
                     </Button>
                 </View>
@@ -134,10 +165,12 @@ const SignInScreen = ({route, navigation})=>{
                     <Button
                         title = "Login with Email Link"
                         color="#1a53ff"
+                        onPress = {handleSubmit}
                     >
                     </Button>
                 </View>
             </View>
+            </ScrollView>
         </SafeAreaView>
     );
 }

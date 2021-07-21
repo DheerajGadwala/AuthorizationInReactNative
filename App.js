@@ -11,43 +11,50 @@ import SignUpScreen from './components/authScreens/signUpScreen';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const HomeScreen = ({ navigation }) => {
-    return (
-        <>
-        <Text>Signed In</Text>
-        <Button
-            title="Go to Jane's profile"
-            onPress={() =>
-            {
-            console.log('here');
-                // auth()
-                // .createUserWithEmailAndPassword('jane.doe@example.com', 'SuperSecretPassword!')
-                // .then(() => {
-                //     console.log('User account created & signed in!');
-                // })
-                // .catch(error => {
-                //     if (error.code === 'auth/email-already-in-use') {
-                //     console.log('That email address is already in use!');
-                //     }
-
-                //     if (error.code === 'auth/invalid-email') {
-                //     console.log('That email address is invalid!');
-                //     }
-
-                //     console.error(error);
-                // });
-            }
-            }
-        />
-        </>
-    );
-  };
-
 const App = () => {
 
     const [signedIn, setSignedIn] = useState(false);
+    const [signedInEmail, setSignedInEmail] = useState('');
+    const [signedInUserId, setSignedInUserId] = useState('');
+
+    const HomeScreen = ({ navigation }) => {
+        return (
+            <>
+            <Text>{signedInEmail}YOLO</Text>
+            <Button
+                title="Go to Jane's profile"
+                onPress={() =>
+                {
+                console.log('here');
+                    // auth()
+                    // .createUserWithEmailAndPassword('jane.doe@example.com', 'SuperSecretPassword!')
+                    // .then(() => {
+                    //     console.log('User account created & signed in!');
+                    // })
+                    // .catch(error => {
+                    //     if (error.code === 'auth/email-already-in-use') {
+                    //     console.log('That email address is already in use!');
+                    //     }
+    
+                    //     if (error.code === 'auth/invalid-email') {
+                    //     console.log('That email address is invalid!');
+                    //     }
+    
+                    //     console.error(error);
+                    // });
+                }
+                }
+            />
+            </>
+        );
+      };
+
     useEffect(() => {
-        DeviceEventEmitter.addListener("login", () => setSignedIn(true));
+        DeviceEventEmitter.addListener("login", params =>{
+                setSignedIn(true); 
+                setSignedInEmail(params.email); 
+                setSignedInUserId(params.userId);
+            });
     }, []);
   return (
     <NavigationContainer>
