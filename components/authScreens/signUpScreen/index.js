@@ -1,10 +1,12 @@
 import 'react-native-gesture-handler';
 import React, {useState} from 'react';
-import {Animated, easing, SafeAreaView, View, Text, Button, TextInput, Image, TouchableOpacity, DeviceEventEmitter, ScrollView, TouchableWithoutFeedback} from 'react-native';
+import {Animated, SafeAreaView, View, Text, Button, TextInput, Image, TouchableOpacity, DeviceEventEmitter, ScrollView, TouchableWithoutFeedback} from 'react-native';
 import auth from '@react-native-firebase/auth';
+import { LoginManager, AccessToken } from 'react-native-fbsdk-next';
+import { GoogleSignin} from '@react-native-google-signin/google-signin';
 import styles from '../styles.js';
 import facebook from './images/facebook.png';
-import gmail from './images/gmail.png';
+import google from './images/google.png';
 import info from './images/info.png';
 
 const SignInScreen = ({navigation})=>{
@@ -19,6 +21,10 @@ const SignInScreen = ({navigation})=>{
     const [emailError, setEmailError] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const [confirmPasswordError, setConfirmPasswordError] = useState('');
+
+    GoogleSignin.configure({
+        webClientId: "817191026253-dg0sr94gh2jkt0tcl2o9k9c7chub6fsg.apps.googleusercontent.com"
+    });
 
     const AnimatedLabel = (props) =>{
         return (
@@ -81,14 +87,34 @@ const SignInScreen = ({navigation})=>{
             ).start();
     }
 
-    const  validateEmail = (email) => {
-        const re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-        return re.test(email);
+    const  validateEmail = () => {
+        let re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+        let ret = re.test(email);
+        if(!ret)
+            setEmailError('Invalid email id');
+        return ret;
     }
 
-    const validatePassword = (password) =>{
-        const re = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-        return re.test(password);
+    const validatePassword = () =>{
+        let re = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        let ret = re.test(password);
+        if(!ret)
+            setPasswordError('Password too weak');
+        return ret;
+    }
+
+    const validateConfirmPassword = ()=> {
+        if(password!==confirmPassword){
+            setConfirmPasswordError('Passwords do not match');
+            return false;
+        }
+        else{
+            return true;
+        }
+    }
+
+    const validateInput = ()=>{
+        return validateEmail() && validatePassword() && validateConfirmPassword();
     }
 
     const togglePasswordInfoModal = ()=>{
@@ -124,27 +150,58 @@ const SignInScreen = ({navigation})=>{
             ).start(); 
     }
 
-    const handleSubmit = ()=>{
+    //https://developers.facebook.com/docs/facebook-login/android
+    const facebookSignup = async ()=>{
         turnOffPasswordInfoModal();
-        let checker = true;
-        if(!validateEmail(email))
-            {setEmailError('Invalid email id');checker=false;}
-        if(!validatePassword(password))
-            {setPasswordError('Password too weak');checker=false;}
-        if(password !== confirmPassword)
-            {setConfirmPasswordError('Passwords do not match');checker=false;}
-        if(checker)
-            {
-                auth().createUserWithEmailAndPassword(email, password)
-                .then((result)=>{
-                    let user = result.user;
-                    console.log(user);
-                    DeviceEventEmitter.emit("login", {'email':user.email, 'userId':user.userId});
-                })
-                .catch((error)=>{
-                    console.log(error);
-                });
+        try{
+            let permissions = await LoginManager.logInWithPermissions(['public_profile', 'email']);
+            if(permissions.isCancelled)       //When user cancels login/ signup
+                throw 'user cancelled login process';
+            let data = await AccessToken.getCurrentAccessToken();
+            if(!data)
+                throw 'somthing went wrong'
+            const facebookCredential = auth.FacebookAuthProvider.credential(data.accessToken);
+            let result = await auth().signInWithCredential(facebookCredential);
+            let user = result.user;
+            DeviceEventEmitter.emit("login", {'userDetails' : user});
+        }
+        catch(error){
+            console.log(error);
+        }
+    }
+
+
+    //https://github.com/react-native-google-signin/google-signin#project-setup-and-initialization
+    const googleSignup = async ()=>{
+        turnOffPasswordInfoModal();
+        try{
+            let a = await GoogleSignin.hasPlayServices();
+            console.log(JSON.stringify(a));
+            let {idToken} = await GoogleSignin.signIn();
+            let googleCredentials = auth.GoogleAuthProvider.credential(idToken);
+            let result = await auth().signInWithCredential(googleCredentials);
+            let user = result.user;
+            DeviceEventEmitter.emit("login", {'userDetails' : user});
+        }
+        catch(error){
+            console.log(JSON.stringify(error));
+        }
+
+    }
+
+    const handleSubmit = async ()=>{
+        turnOffPasswordInfoModal();
+        if(validateInput()){
+            try{
+                let result = await auth().createUserWithEmailAndPassword(email, password);
+                let user = result.user;
+                DeviceEventEmitter.emit("login", {'userDetails' : user});
             }
+            catch(error){
+                if(error.code==='auth/email-already-in-use')
+                    setEmailError('An account is already linked to this email');
+            }
+        }
     }
 
     return (
@@ -167,7 +224,7 @@ const SignInScreen = ({navigation})=>{
                             </View>
                             <View style = {styles.iconsContainer}>
                                 <View style = {styles.iconElement}>
-                                    <TouchableOpacity style={styles.iconElementTouchable} onPress={turnOffPasswordInfoModal}>
+                                    <TouchableOpacity style={styles.iconElementTouchable} onPress={facebookSignup}>
                                         <View style={styles.iconContainer} >
                                             <Image source={facebook} style={styles.icon}/>
                                             <Text style={styles.iconText}>Facebook</Text>
@@ -175,17 +232,17 @@ const SignInScreen = ({navigation})=>{
                                     </TouchableOpacity>
                                 </View>
                                 <View style = {styles.iconElement}>
-                                    <TouchableOpacity style={styles.iconElementTouchable} onPress={turnOffPasswordInfoModal}>
+                                    <TouchableOpacity style={styles.iconElementTouchable} onPress={googleSignup}>
                                         <View style={styles.iconContainer}>
-                                            <Image source={gmail} style={styles.icon}/>
-                                            <Text style={styles.iconText}>Gmail</Text>
+                                            <Image source={google} style={styles.icon}/>
+                                            <Text style={styles.iconText}>Google</Text>
                                         </View>
                                     </TouchableOpacity>
                                 </View>
                             </View>
                             <View style = {styles.inputContainer}>
                                 <TextInput
-                                    onChangeText = {(text)=>{setEmailError(''); setEmail(text)}}
+                                    onChangeText = {(text)=>{emailError?setEmailError(''):()=>{}; setEmail(text)}}
                                     onFocus = {()=>{handleFocus(emailLabelAnimator)}}
                                     onBlur = {()=>{handleBlur(emailLabelAnimator, email)}}
                                     value = {email}
@@ -198,7 +255,7 @@ const SignInScreen = ({navigation})=>{
                             </View>
                             <View style = {styles.inputContainer}>
                                 <TextInput
-                                    onChangeText = {(text)=>{setPasswordError(''); setPassword(text)}}
+                                    onChangeText = {(text)=>{passwordError?setPasswordError(''):()=>{}; setPassword(text)}}
                                     onFocus = {()=>{handleFocus(passwordLabelAnimator)}}
                                     onBlur = {()=>{handleBlur(passwordLabelAnimator, password)}}
                                     value = {password}
@@ -216,14 +273,11 @@ const SignInScreen = ({navigation})=>{
                                     <PasswordInfoModal
                                         style = {styles.passwordInfoModal}
                                     />
-                                    {/* <View style = {styles.passwordInfoModal}>
-                                        <Text style = {styles.passwordInfoText}> The password must contain a minimum of 8 characters and at least one lowercase character, one uppercase character, one digit and one special character.</Text>
-                                    </View> */}
                                 </View>
                             </View>
                             <View style = {styles.inputContainer}>
                                 <TextInput
-                                    onChangeText = {(text)=>{setConfirmPasswordError(''); setConfirmPassword(text)}}
+                                    onChangeText = {(text)=>{confirmPasswordError?setConfirmPasswordError(''):()=>{}; setConfirmPassword(text)}}
                                     onFocus = {()=>{handleFocus(confirmPasswordLabelAnimator)}}
                                     onBlur = {()=>{handleBlur(confirmPasswordLabelAnimator, confirmPassword)}}
                                     value = {confirmPassword}

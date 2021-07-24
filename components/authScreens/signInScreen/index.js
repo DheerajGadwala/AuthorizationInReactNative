@@ -2,11 +2,13 @@ import 'react-native-gesture-handler';
 import React, {useState} from 'react';
 import {Animated, SafeAreaView, View, Text, Button, TextInput, Image, TouchableOpacity, DeviceEventEmitter, ScrollView} from 'react-native';
 import auth from '@react-native-firebase/auth';
+import { LoginManager, AccessToken } from 'react-native-fbsdk-next';
+import { GoogleSignin} from '@react-native-google-signin/google-signin';
 import styles from '../styles.js';
 import facebook from './images/facebook.png';
-import gmail from './images/gmail.png';
+import google from './images/google.png';
 
-const SignInScreen = ({route, navigation})=>{
+const SignInScreen = ({navigation})=>{
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -14,6 +16,10 @@ const SignInScreen = ({route, navigation})=>{
     const [passwordLabel, setPasswordLabel] = useState(new Animated.Value(0));
     const [emailError, setEmailError] = useState('');
     const [passwordError, setPasswordError] = useState('');
+
+    GoogleSignin.configure({
+        webClientId: "817191026253-dg0sr94gh2jkt0tcl2o9k9c7chub6fsg.apps.googleusercontent.com"
+      });
 
     const AnimatedLabel = (props) =>{
         return (
@@ -61,34 +67,83 @@ const SignInScreen = ({route, navigation})=>{
             ).start();
     }
 
-    const  validateEmail = (email) => {
-        const re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-        return re.test(email);
+    const  validateEmail = () => {
+        let re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+        let ret = re.test(email);
+        if(!ret)
+            setEmailError('Invalid email id');
+        return ret;
     }
 
-    const handleLoginSubmit = ()=>{
-        if(validateEmail(email)){
-            auth().signInWithEmailAndPassword(email, password)
-            .then((result)=>{
-                let user = result.user;
-                console.log(user);
-                DeviceEventEmitter.emit("login", {'email':user.email, 'userId':user.userId});
-            })
-            .catch((error)=>{
-                console.log(error);
-            });
+    const validatePassword = ()=> {
+        if(!password){
+            setPasswordError('Password can not be empty');
+            return false;
         }
         else{
-            setEmailError('Invalid email id');
+            return true;
         }
+    }
+
+    const validateInput = ()=>{
+        return validateEmail() && validatePassword();
+    }
+
+    const handleLoginSubmit = async ()=>{
+        if(validateInput()){
+            try{
+                let result = await auth().signInWithEmailAndPassword(email, password);
+                let user = result.user;
+                DeviceEventEmitter.emit("login", {'userDetails' : user});
+            }
+            catch(error){
+                if(error.code==='auth/user-not-found'){
+                    setEmailError('No record of user found');
+                }
+                else if(error.code==='auth/wrong-password'){
+                    setPasswordError('Wrong password or user has no password');
+                }
+            }
+        }
+    }
+
+    //https://developers.facebook.com/docs/facebook-login/android
+    const facebookLogin = async ()=>{
+        try{
+            let permissions = await LoginManager.logInWithPermissions(['public_profile', 'email']);
+            if(permissions.isCancelled)       //When user cancels login/ signup
+                throw 'user cancelled login process';
+            let data = await AccessToken.getCurrentAccessToken();
+            if(!data)
+                throw 'somthing went wrong'
+            const facebookCredential = auth.FacebookAuthProvider.credential(data.accessToken);
+            let result = await auth().signInWithCredential(facebookCredential);
+            let user = result.user;
+            DeviceEventEmitter.emit("login", {'userDetails' : user});
+        }
+        catch(error){
+            console.log(error);
+        }
+    }
+
+    const googleLogin = async ()=>{
+        try{
+            let a = await GoogleSignin.hasPlayServices();
+            console.log(JSON.stringify(a));
+            let {idToken} = await GoogleSignin.signIn();
+            let googleCredentials = auth.GoogleAuthProvider.credential(idToken);
+            let result = await auth().signInWithCredential(googleCredentials);
+            let user = result.user;
+            DeviceEventEmitter.emit("login", {'userDetails' : user});
+        }
+        catch(error){
+            console.log(JSON.stringify(error));
+        }
+
     }
 
     const handleSubmit = ()=>{
-        if(validateEmail(email)){
-            DeviceEventEmitter.emit("login");
-        }
-        else{
-            setEmailError('Invalid email id');
+        if(validateInput()){
         }
     }
 
@@ -110,7 +165,7 @@ const SignInScreen = ({route, navigation})=>{
                 </View>
                 <View style = {styles.iconsContainer}>
                     <View style = {styles.iconElement}>
-                        <TouchableOpacity style={styles.iconElementTouchable} onPress={()=>{}}>
+                        <TouchableOpacity style={styles.iconElementTouchable} onPress={facebookLogin}>
                             <View style={styles.iconContainer} >
                                 <Image source={facebook} style={styles.icon}/>
                                 <Text style={styles.iconText}>Facebook</Text>
@@ -118,17 +173,17 @@ const SignInScreen = ({route, navigation})=>{
                         </TouchableOpacity>
                     </View>
                     <View style = {styles.iconElement}>
-                        <TouchableOpacity style={styles.iconElementTouchable} onPress={()=>{}}>
+                        <TouchableOpacity style={styles.iconElementTouchable} onPress={googleLogin}>
                             <View style={styles.iconContainer}>
-                                <Image source={gmail} style={styles.icon}/>
-                                <Text style={styles.iconText}>Gmail</Text>
+                                <Image source={google} style={styles.icon}/>
+                                <Text style={styles.iconText}>Google</Text>
                             </View>
                         </TouchableOpacity>
                     </View>
                 </View>
                 <View style = {styles.inputContainer}>
                     <TextInput
-                        onChangeText = {(text)=>{setEmailError(''); setEmail(text)}}
+                        onChangeText = {(text)=>{emailError?setEmailError(''):()=>{}; setEmail(text)}}
                         onFocus = {()=>{handleFocus(emailLabel)}}
                         onBlur = {()=>{handleBlur(emailLabel, email)}}
                         value = {email}
@@ -141,7 +196,7 @@ const SignInScreen = ({route, navigation})=>{
                 </View>
                 <View style = {styles.inputContainer}>
                     <TextInput
-                        onChangeText = {(text)=>{setPasswordError(''); setPassword(text)}}
+                        onChangeText = {(text)=>{passwordError?setPasswordError(''):()=>{}; setPassword(text)}}
                         onFocus = {()=>{handleFocus(passwordLabel)}}
                         onBlur = {()=>{handleBlur(passwordLabel, password)}}
                         value = {password}

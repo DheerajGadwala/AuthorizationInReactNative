@@ -3,8 +3,7 @@ import React, {useState, useEffect} from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import {View, Text, Button, DeviceEventEmitter} from 'react-native';
-import auth from '@react-native-firebase/auth';
+import {Text, Button, DeviceEventEmitter} from 'react-native';
 import SignInScreen from './components/authScreens/signInScreen';
 import SignUpScreen from './components/authScreens/signUpScreen';
 
@@ -14,48 +13,30 @@ const Tab = createBottomTabNavigator();
 const App = () => {
 
     const [signedIn, setSignedIn] = useState(false);
-    const [signedInEmail, setSignedInEmail] = useState('');
-    const [signedInUserId, setSignedInUserId] = useState('');
+    const [userDetails, setUserDetails] = useState(null)
+
+    useEffect(() => {
+        DeviceEventEmitter.addListener("login", params =>{
+                setSignedIn(true);
+                setUserDetails(params.userDetails);
+            });
+    }, []);
 
     const HomeScreen = ({ navigation }) => {
         return (
             <>
-            <Text>{signedInEmail}YOLO</Text>
+            <Text>{userDetails?userDetails.email:''}</Text>
             <Button
                 title="Go to Jane's profile"
-                onPress={() =>
-                {
-                console.log('here');
-                    // auth()
-                    // .createUserWithEmailAndPassword('jane.doe@example.com', 'SuperSecretPassword!')
-                    // .then(() => {
-                    //     console.log('User account created & signed in!');
-                    // })
-                    // .catch(error => {
-                    //     if (error.code === 'auth/email-already-in-use') {
-                    //     console.log('That email address is already in use!');
-                    //     }
-    
-                    //     if (error.code === 'auth/invalid-email') {
-                    //     console.log('That email address is invalid!');
-                    //     }
-    
-                    //     console.error(error);
-                    // });
-                }
+                onPress={() =>{
+                        console.log('here');
+                    }
                 }
             />
             </>
         );
       };
 
-    useEffect(() => {
-        DeviceEventEmitter.addListener("login", params =>{
-                setSignedIn(true); 
-                setSignedInEmail(params.email); 
-                setSignedInUserId(params.userId);
-            });
-    }, []);
   return (
     <NavigationContainer>
         {
