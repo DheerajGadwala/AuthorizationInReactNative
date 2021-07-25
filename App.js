@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import {Text, Button, DeviceEventEmitter} from 'react-native';
+import auth from '@react-native-firebase/auth';
 import SignInScreen from './components/authScreens/signInScreen';
 import SignUpScreen from './components/authScreens/signUpScreen';
 
@@ -12,24 +13,33 @@ const Tab = createBottomTabNavigator();
 
 const App = () => {
 
-    const [signedIn, setSignedIn] = useState(false);
-    const [userDetails, setUserDetails] = useState(null)
+    const [isLoading, setIsLoading] = useState(false);
+    const [signedIn, setSignedIn] = useState(auth()._user!==null);
+    const [userDetails, setUserDetails] = useState(auth()._user);
 
-    useEffect(() => {
-        DeviceEventEmitter.addListener("login", params =>{
-                setSignedIn(true);
-                setUserDetails(params.userDetails);
-            });
+    useEffect(()=>{
+        //onAuthStateChange is not detecting changes made to emailVerified, so I'm using DeviceEventEmitter instead.
+        DeviceEventEmitter.addListener('@verified_login', params=>{
+            setIsLoading(true);
+            setSignedIn(auth()._user!==null);
+            setUserDetails(auth()._user);
+            setIsLoading(false);
+        });
     }, []);
+
 
     const HomeScreen = ({ navigation }) => {
         return (
             <>
-            <Text>{userDetails?userDetails.email:''}</Text>
+            <Text></Text>
             <Button
-                title="Go to Jane's profile"
-                onPress={() =>{
-                        console.log('here');
+                title="Logout"
+                onPress={async () =>{
+                        setIsLoading(true);
+                        await auth().signOut();
+                        setSignedIn(false);
+                        setUserDetails(null);
+                        setIsLoading(false);
                     }
                 }
             />
@@ -40,7 +50,10 @@ const App = () => {
   return (
     <NavigationContainer>
         {
-            signedIn
+            isLoading?
+            <></>
+            :
+            signedIn && (userDetails.emailVerified || userDetails.providerData[0].providerId!=='password')
             ?
             <Stack.Navigator>
                 <Stack.Screen

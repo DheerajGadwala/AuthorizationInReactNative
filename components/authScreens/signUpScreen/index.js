@@ -1,6 +1,6 @@
 import 'react-native-gesture-handler';
-import React, {useState} from 'react';
-import {Animated, SafeAreaView, View, Text, Button, TextInput, Image, TouchableOpacity, DeviceEventEmitter, ScrollView, TouchableWithoutFeedback} from 'react-native';
+import React, {useState, useEffect} from 'react';
+import {Animated, SafeAreaView, View, Text, Button, TextInput, Image, TouchableOpacity, ScrollView, TouchableWithoutFeedback, DeviceEventEmitter} from 'react-native';
 import auth from '@react-native-firebase/auth';
 import { LoginManager, AccessToken } from 'react-native-fbsdk-next';
 import { GoogleSignin} from '@react-native-google-signin/google-signin';
@@ -18,9 +18,11 @@ const SignInScreen = ({navigation})=>{
     const [passwordLabelAnimator, setPasswordLabelAnimator] = useState(new Animated.Value(0));
     const [confirmPasswordLabelAnimator, setConfirmPasswordLabelAnimator] = useState(new Animated.Value(0));
     const [passwordInfoModalAnimator, setPasswordInfoModalAnimator] = useState(new Animated.Value(0));
+    const [messageBoxAnimator, setMessageBoxAnimator] = useState(new Animated.Value(0));
     const [emailError, setEmailError] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const [confirmPasswordError, setConfirmPasswordError] = useState('');
+    const [messageBox, setMessageBox] = useState('');
 
     GoogleSignin.configure({
         webClientId: "817191026253-dg0sr94gh2jkt0tcl2o9k9c7chub6fsg.apps.googleusercontent.com"
@@ -60,6 +62,29 @@ const SignInScreen = ({navigation})=>{
             pointerEvents={'none'}
             >
                 <Text style={styles.passwordInfoText}> The password must contain a minimum of 8 characters and at least one lowercase character, one uppercase character, one digit and one special character.</Text>
+            </Animated.View>
+        );
+    }
+
+    const AnimatedMessageBox = (props) =>{
+        return (
+            <Animated.View style= {{
+                ...props.style,
+                transform: [{scale: messageBoxAnimator.interpolate({inputRange:[0, 1], outputRange:[0, 1]})}],
+                opacity: messageBoxAnimator.interpolate({inputRange:[0, 1], outputRange:[0, 1]}),
+                zIndex: messageBoxAnimator.interpolate({inputRange:[0, 1], outputRange:[0, 3]})
+                }}>
+                <View style = {styles.messageBox}>
+                    <Text style = {styles.messageBoxText}>{messageBox}</Text>
+                    <View style = {styles.messageBoxButton}>
+                        <Button
+                            title = "Ok"
+                            color="#4da6ff" 
+                            onPress = {()=>{setMessageBox('')}}
+                        >
+                        </Button>
+                    </View>
+                </View>
             </Animated.View>
         );
     }
@@ -161,12 +186,17 @@ const SignInScreen = ({navigation})=>{
             if(!data)
                 throw 'somthing went wrong'
             const facebookCredential = auth.FacebookAuthProvider.credential(data.accessToken);
-            let result = await auth().signInWithCredential(facebookCredential);
-            let user = result.user;
-            DeviceEventEmitter.emit("login", {'userDetails' : user});
+            await auth().signInWithCredential(facebookCredential);
+            DeviceEventEmitter.emit('@verified_login');
         }
         catch(error){
-            console.log(error);
+            if(error.code==='auth/account-exists-with-different-credential'){
+
+                setMessageBox(`An account already exists with the same email address but different sign-in credentials. Sign in using a provider associated with this email address. [Try logging in with your Google account]`);
+            }
+            else{
+                setMessageBox(error);
+            }
         }
     }
 
@@ -179,12 +209,16 @@ const SignInScreen = ({navigation})=>{
             console.log(JSON.stringify(a));
             let {idToken} = await GoogleSignin.signIn();
             let googleCredentials = auth.GoogleAuthProvider.credential(idToken);
-            let result = await auth().signInWithCredential(googleCredentials);
-            let user = result.user;
-            DeviceEventEmitter.emit("login", {'userDetails' : user});
+            await auth().signInWithCredential(googleCredentials);
+            DeviceEventEmitter.emit('@verified_login');
         }
         catch(error){
-            console.log(JSON.stringify(error));
+            if(error.code==='auth/account-exists-with-different-credential'){
+                setMessageBox(`An account already exists with the same email address but different sign-in credentials. Sign in using a provider associated with this email address. [Try logging in with your Facebook account]`);
+            }
+            else{
+                setMessageBox(error);
+            }
         }
 
     }
@@ -193,16 +227,50 @@ const SignInScreen = ({navigation})=>{
         turnOffPasswordInfoModal();
         if(validateInput()){
             try{
-                let result = await auth().createUserWithEmailAndPassword(email, password);
-                let user = result.user;
-                DeviceEventEmitter.emit("login", {'userDetails' : user});
+                await auth().createUserWithEmailAndPassword(email, password).then(userData=>{
+                    userData.user.sendEmailVerification();
+                    setMessageBox('A verification link has been sent to your email. Please verify to proceed.');
+                    let emailVerificationEventListener = setInterval(async ()=>{
+                        console.log('listening', auth().currentUser, auth()._user);
+                        auth().currentUser.reload();
+                        if (auth().currentUser.emailVerified) {
+                            clearInterval(emailVerificationEventListener);
+                            DeviceEventEmitter.emit('@verified_login');
+                        }
+                    }, 1000);
+                });
             }
             catch(error){
                 if(error.code==='auth/email-already-in-use')
                     setEmailError('An account is already linked to this email');
+                else
+                    setMessageBox(error);
             }
         }
     }
+
+    useEffect(()=>{
+        if(messageBox){
+            Animated.timing(
+                messageBoxAnimator,
+                {
+                  toValue: 1,
+                  duration: 200,
+                  useNativeDriver: false
+                }
+            ).start();
+        }
+        else{
+            Animated.timing(
+                messageBoxAnimator,
+                {
+                  toValue: 0,
+                  duration: 200,
+                  useNativeDriver: false
+                }
+            ).start();
+        }
+    }, [messageBox]);
 
     return (
         <TouchableWithoutFeedback onFocus={turnOffPasswordInfoModal} onPress={turnOffPasswordInfoModal}>
@@ -210,6 +278,7 @@ const SignInScreen = ({navigation})=>{
                 <ScrollView style = {styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
                     <TouchableWithoutFeedback onFocus={turnOffPasswordInfoModal} onPress={turnOffPasswordInfoModal}>
                         <View style = {styles.container}>
+                        <AnimatedMessageBox style = {styles.messageBoxContainer}/>
                             <View style = {styles.titleContainer}>
                                 <TouchableOpacity onPress={()=>{navigation.navigate('SignIn')}}>
                                     <Text style={styles.title}>

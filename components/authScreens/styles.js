@@ -20,7 +20,33 @@ const styles = StyleSheet.create({
         width: '80%',
         backgroundColor: "#ccd8ff",
         padding: 20,
-        borderRadius: 5
+        borderRadius: 5,
+    },
+    messageBoxContainer:{
+        position: 'absolute',
+        zIndex: 3,
+        width:'100%',
+        height:'100%',
+        
+    },
+    messageBox: {
+        position: 'relative',
+        margin: 20,
+        padding: 20,
+        width: '100%',
+        top: '40%',
+        height:'35%',
+        justifyContent: 'space-around',
+        alignItems:'center',
+        borderRadius: 7,
+        backgroundColor: '#33334d'
+    },
+    messageBoxText: {
+        color: 'white',
+        paddingBottom: 20
+    },
+    messageBoxButton:{
+        width:'50%',
     },
     titleContainer:{
         width: '100%',
