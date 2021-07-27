@@ -197,7 +197,6 @@ const SignInScreen = ({navigation})=>{
     }
 
     const resetPassword = async()=>{
-        console.log(auth());
         if(validateEmail()){
             try{
                 await auth().sendPasswordResetEmail(email);

@@ -206,7 +206,6 @@ const SignInScreen = ({navigation})=>{
         turnOffPasswordInfoModal();
         try{
             let a = await GoogleSignin.hasPlayServices();
-            console.log(JSON.stringify(a));
             let {idToken} = await GoogleSignin.signIn();
             let googleCredentials = auth.GoogleAuthProvider.credential(idToken);
             await auth().signInWithCredential(googleCredentials);
@@ -231,7 +230,6 @@ const SignInScreen = ({navigation})=>{
                     userData.user.sendEmailVerification();
                     setMessageBox('A verification link has been sent to your email. Please verify to proceed.');
                     let emailVerificationEventListener = setInterval(async ()=>{
-                        console.log('listening', auth().currentUser, auth()._user);
                         auth().currentUser.reload();
                         if (auth().currentUser.emailVerified) {
                             clearInterval(emailVerificationEventListener);
