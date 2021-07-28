@@ -2,7 +2,7 @@ import 'react-native-gesture-handler';
 import React from 'react';
 import {View, Button, LogBox} from 'react-native';
 import auth from '@react-native-firebase/auth';
-import styles from '../styles.js';
+import styles from './styles.js';
 
 const SettingsScreen = ({navigation, route})=>{
 
